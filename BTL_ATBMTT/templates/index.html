@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gửi Tin Nhắn và Tệp qua WebSocket và TCP</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f7f7f7;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .container {
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+            width: 60%;
+            max-width: 600px;
+            box-sizing: border-box;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 24px;
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        #messages {
+            margin-bottom: 20px;
+            padding: 10px;
+            background-color: #f1f1f1;
+            border-radius: 5px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-size: 14px;
+            margin-bottom: 5px;
+            color: #555;
+        }
+
+        input[type="text"], textarea, input[type="file"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        button {
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            color: #aaa;
+        }
+
+        #fileDisplay {
+            margin-top: 20px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Gửi Tin Nhắn và Tệp qua WebSocket và TCP</h1>
+
+        <!-- Hiển thị các tin nhắn -->
+        <div id="messages"></div>
+
+        <!-- Form gửi tin nhắn và tệp -->
+        <form id="messageForm" enctype="multipart/form-data">
+            <div class="form-group">
+                <label for="message">Nhập tin nhắn:</label>
+                <textarea id="message" name="message" rows="4" cols="50"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="file">Chọn tệp để gửi:</label>
+                <input type="file" id="file" name="file" />
+                <span id="fileName" style="display: block; margin-top: 10px; color: #555;">No file chosen</span>
+            </div>
+            <button type="submit">Gửi Tin Nhắn và Tệp</button>
+        </form>
+
+        <!-- Hiển thị tệp sau khi gửi thành công -->
+        <div id="fileDisplay"></div>
+
+        <div class="footer">
+            <p>&copy; 2025 Gửi Tin Nhắn và Tệp WebSocket và TCP</p>
+        </div>
+    </div>
+
+    <!-- Thêm socket.io.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.0/socket.io.min.js"></script>
+
+    <script>
+        const socket = io();
+
+        // Lắng nghe sự kiện khi nhận tệp
+        socket.on('file_received', function(fileInfo) {
+            const fileElement = document.createElement('div');
+            const link = document.createElement('a');
+            link.href = `/uploads/${fileInfo.fileName}`;  // Truy cập tệp từ thư mục uploads
+            link.textContent = `Tải tệp: ${fileInfo.fileName}`;
+            link.download = fileInfo.fileName;  // Đảm bảo tải về tệp
+            fileElement.appendChild(link);
+            document.getElementById('messages').appendChild(fileElement);
+
+            // Hiển thị tệp đã gửi
+            const fileDisplay = document.getElementById('fileDisplay');
+            fileDisplay.innerHTML = `<strong>Tệp đã gửi:</strong> <a href="/uploads/${fileInfo.fileName}" target="_blank">${fileInfo.fileName}</a>`;
+        });
+
+        // Lắng nghe tin nhắn mới từ máy chủ
+        socket.on('message', function(msg) {
+            const messageElement = document.createElement('div');
+            messageElement.textContent = msg;
+            document.getElementById('messages').appendChild(messageElement);
+        });
+
+        // Gửi tin nhắn khi form được gửi
+        document.getElementById('messageForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+            
+            const message = document.getElementById('message').value;
+            const fileInput = document.getElementById('file');
+            const file = fileInput.files[0];
+
+            if (file) {
+                const reader = new FileReader();
+                reader.onloadend = function() {
+                    const base64File = reader.result.split(',')[1];
+                    socket.emit('file', { message: message, file: base64File, fileName: file.name });
+                    // Hiển thị tên tệp đã chọn
+                    document.getElementById('fileName').textContent = file.name;
+                };
+                reader.readAsDataURL(file);
+            } else {
+                socket.emit('message', message);
+            }
+
+            document.getElementById('message').value = '';
+            fileInput.value = '';
+        });
+    </script>
+
+</body>
+</html>
